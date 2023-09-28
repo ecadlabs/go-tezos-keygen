@@ -11,6 +11,7 @@ import (
 type Charger interface {
 	ChargeKeys(ctx context.Context, keys []uint64) error
 	IsDrained(ctx context.Context, key uint64) (bool, error)
+	Hash(key uint64) string
 }
 
 type Config interface {
@@ -162,7 +163,7 @@ func (p *Pool) loop() {
 			err := p.db.Update(func(tx *bolt.Tx) error {
 				b := bucket{tx.Bucket([]byte(p.config.GetBucket())).Bucket(poolBucket)}
 				if err := p.fill(tx); err != nil {
-					return nil
+					return err
 				}
 				// pop first
 				c := b.Cursor()
@@ -187,7 +188,7 @@ func (p *Pool) loop() {
 				root := tx.Bucket([]byte(p.config.GetBucket()))
 				poolBkt := bucket{root.Bucket(poolBucket)}
 				if err := p.fill(tx); err != nil {
-					return nil
+					return err
 				}
 				// pop first
 				c := poolBkt.Cursor()
@@ -247,6 +248,7 @@ func (p *Pool) loop() {
 						if !drained {
 							k, _ := poolBkt.NextSequence()
 							// put back
+							log.WithField("pkh", p.charger.Hash(v.KeyIndex)).Info("Recycling")
 							if err := poolBkt.Put(&k, &v.KeyIndex); err != nil {
 								return err
 							}

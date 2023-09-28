@@ -2,13 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ecadlabs/go-tezos-keygen/charger"
 	"github.com/ecadlabs/go-tezos-keygen/keypool"
 	"github.com/ecadlabs/go-tezos-keygen/server"
 	tz "github.com/ecadlabs/gotez/v2"
+	"github.com/ecadlabs/gotez/v2/client"
+	"github.com/ecadlabs/gotez/v2/encoding"
+	log "github.com/sirupsen/logrus"
 )
 
 type NetworkConfig interface {
@@ -26,6 +31,21 @@ type Service struct {
 	Networks map[string]*Network
 }
 
+func logError(err error) {
+	log.Error(err)
+	log.Debugf("%#v", err)
+
+	var e *encoding.Error
+	if errors.As(err, &e) {
+		log.Debug(e.Path)
+	} else {
+		var e *client.Error
+		if errors.As(err, &e) {
+			log.Debug(spew.Sdump(e.Body))
+		}
+	}
+}
+
 func (s *Service) Pop(ctx context.Context, network string) (tz.PrivateKey, error) {
 	net, ok := s.Networks[network]
 	if !ok {
@@ -33,6 +53,7 @@ func (s *Service) Pop(ctx context.Context, network string) (tz.PrivateKey, error
 	}
 	index, err := net.Pool.Get(ctx)
 	if err != nil {
+		logError(err)
 		return nil, err
 	}
 	priv, err := net.Config.GetSeed().Derive(index)
@@ -49,6 +70,7 @@ func (s *Service) Status(ctx context.Context, network string) (*server.NetworkSt
 	}
 	balance, err := net.Charger.GetFunds(ctx)
 	if err != nil {
+		logError(err)
 		return nil, err
 	}
 	cnt, err := net.Pool.Count()
@@ -68,6 +90,7 @@ func (s *Service) Lease(ctx context.Context, network string) (*server.Lease, err
 	}
 	index, err := net.Pool.Lease(ctx, time.Now().Add(net.Config.GetLeaseTime()))
 	if err != nil {
+		logError(err)
 		return nil, err
 	}
 	priv, err := net.Config.GetSeed().Derive(index)

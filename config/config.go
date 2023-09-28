@@ -5,6 +5,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ecadlabs/go-tezos-keygen/charger"
@@ -25,7 +26,7 @@ type networkConfig struct {
 	OpsPerGroup     int           `yaml:"ops-per-group"`
 	LeaseTime       time.Duration `yaml:"lease-time"`
 	BufferLength    int           `yaml:"buffer-length"`
-	BufferThreshold int           `yaml:"buffet-threshold"`
+	BufferThreshold int           `yaml:"buffer-threshold"`
 	Timeout         time.Duration `yaml:"rpc-timeout"`
 }
 
@@ -65,22 +66,37 @@ func New(rd io.Reader) (Config, error) {
 	}
 	out := make(Config, len(raw))
 	for name, data := range raw {
-		privData, err := inlineOrFile(data.PrivateKey, data.PrivateKeyFile)
-		if err != nil {
-			return nil, err
+		envPrefix := strings.ToUpper(name)
+		var privData []byte
+		if v := os.Getenv(envPrefix + "_PRIVATE_KEY"); v != "" {
+			privData = []byte(v)
+		} else {
+			var err error
+			privData, err = inlineOrFile(data.PrivateKey, data.PrivateKeyFile)
+			if err != nil {
+				return nil, err
+			}
 		}
 		priv, err := crypt.ParsePrivateKey(privData)
 		if err != nil {
 			return nil, err
 		}
-		seedData, err := inlineOrFile(data.Seed, data.SeedFile)
-		if err != nil {
-			return nil, err
+
+		var seedData []byte
+		if v := os.Getenv(envPrefix + "_SEED"); v != "" {
+			seedData = []byte(v)
+		} else {
+			var err error
+			seedData, err = inlineOrFile(data.Seed, data.SeedFile)
+			if err != nil {
+				return nil, err
+			}
 		}
 		seed := make([]byte, hex.DecodedLen(len(seedData)))
 		if _, err := hex.Decode(seed, seedData); err != nil {
 			return nil, err
 		}
+
 		out[name] = &NetworkConfig{
 			networkConfig: data,
 			name:          name,

@@ -1,20 +1,16 @@
 package charger
 
 import (
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ecadlabs/gotez/v2/crypt"
 	"github.com/ecadlabs/hdw"
-	"github.com/ecadlabs/hdw/ecdsa"
+	"github.com/ecadlabs/hdw/ed25519"
 )
 
 type Seed []byte
 
 func (s Seed) Derive(index uint64) (crypt.PrivateKey, error) {
-	root, err := ecdsa.NewKeyFromSeed(s, secp256k1.S256())
-	if err != nil {
-		panic(err) // the curve is hardcoded
-	}
-	priv, err := root.DerivePath(hdw.Path{uint32(index >> 32), uint32(index & 0xffffffff)})
+	root := ed25519.NewKeyFromSeed(s)
+	priv, err := root.DerivePath(hdw.Path{uint32(index>>32) | hdw.Hard, uint32(index&0xffffffff) | hdw.Hard})
 	if err != nil {
 		return nil, err
 	}

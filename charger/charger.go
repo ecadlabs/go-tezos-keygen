@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ecadlabs/go-tezos-keygen/utils"
 	tz "github.com/ecadlabs/gotez/v2"
 	"github.com/ecadlabs/gotez/v2/client"
 	"github.com/ecadlabs/gotez/v2/crypt"
@@ -40,11 +41,9 @@ func (c *Charger) ChargeKeys(ctx context.Context, keys []uint64) error {
 		return err
 	}
 
-	tezTool := teztool.TezTool{
-		Client:  c.client,
-		ChainID: c.cfg.GetChainID(),
-		Signer:  teztool.NewLocalSigner(c.cfg.GetPrivateKey()),
-	}
+	tezTool := teztool.New(c.client, c.cfg.GetChainID())
+	tezTool.DebugLogger = (*utils.DebugLogger)(log.StandardLogger())
+	signer := teztool.NewLocalSigner(c.cfg.GetPrivateKey())
 
 	for len(keys) != 0 {
 		var ops []latest.OperationContents
@@ -54,10 +53,11 @@ func (c *Charger) ChargeKeys(ctx context.Context, keys []uint64) error {
 
 			priv, err := c.cfg.GetSeed().Derive(keyIndex)
 			if err != nil {
+				log.Error(err)
 				return err
 			}
 			dest := priv.Public().Hash()
-			log.WithField("pkh", dest).Info("Funding")
+			log.WithFields(log.Fields{"pkh": dest, "amount_mutez": amount}).Info("Funding")
 			tx := latest.Transaction{
 				ManagerOperation: latest.ManagerOperation{
 					Source: c.cfg.GetPrivateKey().Public().Hash(),
@@ -67,7 +67,7 @@ func (c *Charger) ChargeKeys(ctx context.Context, keys []uint64) error {
 			}
 			ops = append(ops, &tx)
 		}
-		hash, err := tezTool.SignAndInject(ctx, ops, teztool.FillCounter, teztool.FillFee, teztool.FillGasLimit, teztool.FillStorageLimit)
+		hash, err := tezTool.FillSignAndInject(ctx, signer, ops, true, teztool.FillAll)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -80,6 +80,7 @@ func (c *Charger) ChargeKeys(ctx context.Context, keys []uint64) error {
 func (c *Charger) IsDrained(ctx context.Context, key uint64) (bool, error) {
 	priv, err := c.cfg.GetSeed().Derive(key)
 	if err != nil {
+		log.Error(err)
 		return false, err
 	}
 	address := priv.Public().Hash()
@@ -89,6 +90,15 @@ func (c *Charger) IsDrained(ctx context.Context, key uint64) (bool, error) {
 		return false, err
 	}
 	return balance.Cmp(c.cfg.GetMinBalance()) < 0, nil
+}
+
+func (c *Charger) Hash(key uint64) string {
+	priv, err := c.cfg.GetSeed().Derive(key)
+	if err != nil {
+		log.Error(err)
+		return ""
+	}
+	return priv.Public().Hash().String()
 }
 
 func (c *Charger) GetFunds(ctx context.Context) (*big.Int, error) {

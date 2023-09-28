@@ -4,13 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"crypto/rand"
 
 	"github.com/ecadlabs/go-tezos-keygen/charger"
 	"github.com/ecadlabs/go-tezos-keygen/config"
@@ -18,6 +22,7 @@ import (
 	"github.com/ecadlabs/go-tezos-keygen/server"
 	"github.com/ecadlabs/go-tezos-keygen/server/middleware"
 	"github.com/ecadlabs/go-tezos-keygen/service"
+	"github.com/ecadlabs/go-tezos-keygen/utils"
 	"github.com/ecadlabs/gotez/v2/client"
 	log "github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
@@ -28,11 +33,30 @@ func main() {
 		networksFile string
 		databaseFile string
 		address      string
+		level        string
+		genSeed      bool
 	)
 	flag.StringVar(&networksFile, "n", "", "Networks configuration file")
 	flag.StringVar(&databaseFile, "d", "", "Database")
 	flag.StringVar(&address, "a", ":3000", "Address")
+	flag.StringVar(&level, "l", "info", "Level")
+	flag.BoolVar(&genSeed, "seed", false, "Generate seed and exit")
 	flag.Parse()
+
+	l, err := log.ParseLevel(level)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.SetLevel(l)
+
+	if genSeed {
+		var seed [64]byte
+		if _, err := rand.Read(seed[:]); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(hex.EncodeToString(seed[:]))
+		return
+	}
 
 	if networksFile == "" {
 		networksFile = os.Getenv("KEYGEN_NETWORKS")
@@ -43,10 +67,10 @@ func main() {
 	}
 
 	var rd io.Reader
-	if networksData := os.Getenv("KEYGEN_NETWORKS_DATA"); networksData != "" {
-		rd = bytes.NewReader([]byte(networksData))
+	if x := os.Getenv("KEYGEN_NETWORKS_DATA"); x != "" {
+		rd = bytes.NewReader([]byte(x))
 	} else {
-		fd, err := os.Open(networksData)
+		fd, err := os.Open(networksFile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -58,6 +82,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Infof("Database file: %s", databaseFile)
+
 	db, err := bolt.Open(databaseFile, 0600, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -65,7 +91,10 @@ func main() {
 
 	nets := make(map[string]*service.Network, len(cfg))
 	for name, net := range cfg {
-		client := &client.Client{URL: net.GetURL()}
+		client := &client.Client{
+			URL:         net.GetURL(),
+			DebugLogger: (*utils.DebugLogger)(log.StandardLogger()),
+		}
 		charger := charger.New(net, client)
 		pool, err := keypool.New(db, net, charger)
 		if err != nil {
@@ -109,7 +138,7 @@ func main() {
 	if err := srv.Shutdown(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-	if err := <-errCh; errors.Is(err, http.ErrServerClosed) {
+	if err := <-errCh; !errors.Is(err, http.ErrServerClosed) {
 		log.Error(err)
 	}
 	for _, n := range nets {
@@ -120,5 +149,5 @@ func main() {
 	if err := db.Close(); err != nil {
 		log.Fatal(err)
 	}
-	log.Info("Done...")
+	log.Info("Bye")
 }

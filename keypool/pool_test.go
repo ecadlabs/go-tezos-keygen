@@ -3,6 +3,7 @@ package keypool_test
 import (
 	"context"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -25,6 +26,10 @@ func (c *ChargerMock) ChargeKeys(ctx context.Context, keys []uint64) error {
 func (c *ChargerMock) IsDrained(ctx context.Context, key uint64) (bool, error) {
 	args := c.Called(key)
 	return args.Bool(0), args.Error(1)
+}
+
+func (c *ChargerMock) Hash(key uint64) string {
+	return strconv.FormatUint(key, 10)
 }
 
 type config struct {

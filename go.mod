@@ -3,8 +3,8 @@ module github.com/ecadlabs/go-tezos-keygen
 go 1.21
 
 require (
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
-	github.com/ecadlabs/gotez/v2 v2.0.0-alpha9
+	github.com/davecgh/go-spew v1.1.1
+	github.com/ecadlabs/gotez/v2 v2.0.0-alpha10
 	github.com/ecadlabs/hdw v0.0.0-20221019154344-0b9e0a5909f0
 	github.com/gorilla/mux v1.8.0
 	github.com/sirupsen/logrus v1.9.3
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/ecadlabs/goblst v1.0.0 // indirect
 	github.com/ecadlabs/pretty v0.0.0-20230412124801-f948fc689a04 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -25,4 +25,4 @@ require (
 	golang.org/x/sys v0.12.0 // indirect
 )
 
-replace github.com/ecadlabs/gotez/v2 => ../gotez
+// replace github.com/ecadlabs/gotez/v2 => ../gotez
