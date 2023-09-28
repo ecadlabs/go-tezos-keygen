@@ -39,8 +39,8 @@ func main() {
 	flag.StringVar(&networksFile, "n", "", "Networks configuration file")
 	flag.StringVar(&databaseFile, "d", "", "Database")
 	flag.StringVar(&address, "a", ":3000", "Address")
-	flag.StringVar(&level, "l", "info", "Level")
-	flag.BoolVar(&genSeed, "seed", false, "Generate seed and exit")
+	flag.StringVar(&level, "l", "info", "Level [panic,fatal,error,warn,info,debug,trace]")
+	flag.BoolVar(&genSeed, "seed", false, "Generate 512 bit seed and exit")
 	flag.Parse()
 
 	l, err := log.ParseLevel(level)
