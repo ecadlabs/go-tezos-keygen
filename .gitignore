@@ -21,3 +21,6 @@
 go.work
 
 /go-tezos-keygen
+*.db
+networks.yaml
+.vscode
