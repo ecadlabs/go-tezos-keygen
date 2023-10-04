@@ -12,6 +12,8 @@ RUN go build -o /go-tezos-keygen
 
 FROM debian:bullseye-slim as runtime
 
+RUN apt-get update && apt-get install -y ca-certificates
+
 WORKDIR /app
 
 COPY --from=builder /go-tezos-keygen /app/go-tezos-keygen
