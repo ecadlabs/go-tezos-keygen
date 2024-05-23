@@ -67,12 +67,12 @@ func (c *Charger) ChargeKeys(ctx context.Context, keys []uint64) error {
 			}
 			ops = append(ops, &tx)
 		}
-		hash, err := tezTool.FillSignAndInject(ctx, signer, ops, true, teztool.FillAll)
+		grp, err := tezTool.FillSignAndInjectWait(ctx, signer, ops, client.MetadataNever, teztool.FillAll)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
-		log.WithField("hash", hash).Info("Injected")
+		log.WithField("hash", grp.GetHash()).Info("Injected")
 	}
 	return nil
 }
